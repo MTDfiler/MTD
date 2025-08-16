@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: vat-filer
+    env: python
+    buildCommand: |
+      pip install -r requirements.txt
+      npm install --prefix vat-filer-ui
+      npm run build --prefix vat-filer-ui
+      rm -rf static/app
+      mkdir -p static/app
+      cp -r vat-filer-ui/dist/* static/app/
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: BASE_URL
+        value: https://test-api.service.hmrc.gov.uk
+      - key: HMRC_REDIRECT_URI
+        value: https://mtd.ptpassociates.co.uk/oauth/hmrc/callback
+      - key: HMRC_CLIENT_ID
+        sync: false
+      - key: HMRC_CLIENT_SECRET
+        sync: false
