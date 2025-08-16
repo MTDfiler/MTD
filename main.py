@@ -10,7 +10,7 @@ from typing import Optional
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
-from fastapi.responses import RedirectResponse, PlainTextResponse, HTMLResponse, JSONResponse
+from fastapi.responses import RedirectResponse, PlainTextResponse, HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -106,6 +106,29 @@ if not pathlib.Path("static").exists():
     pathlib.Path("static").mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# -----------------------------------------------------------------------------
+# React SPA (preview UI) at /app
+# Build with Vite and copy dist/* into static/app
+# -----------------------------------------------------------------------------
+REACT_APP_DIR = pathlib.Path("static/app")
+REACT_ASSETS_DIR = REACT_APP_DIR / "assets"
+
+# Serve Vite assets at /app/assets (so index.html can load them)
+if REACT_ASSETS_DIR.exists():
+    app.mount("/app/assets", StaticFiles(directory=str(REACT_ASSETS_DIR)), name="app-assets")
+
+# Serve the React SPA index for /app and any subpath (client-side routing)
+@app.get("/app", response_class=HTMLResponse)
+@app.get("/app/{_:path}", response_class=HTMLResponse)
+def react_index():
+    index_file = REACT_APP_DIR / "index.html"
+    if not index_file.exists():
+        return HTMLResponse(
+            "<p>React app not built yet. Build your UI with Vite and copy dist/* to static/app.</p>",
+            status_code=501,
+        )
+    return FileResponse(str(index_file))
+
 STORE = {"tokens": load_tokens(), "state": None, "device_id": str(uuid.uuid4())}
 
 # -----------------------------------------------------------------------------
@@ -198,6 +221,7 @@ def home(request: Request):
     {"<a class='text-blue-700' href='/dashboard'>Dashboard</a>" if user else "<a class='text-blue-700' href='/login'>Login</a>"}
     <a class="text-blue-700" href="/register/agent">Register (Agent)</a>
     <a class="text-blue-700" href="/register/taxpayer">Register (Taxpayer)</a>
+    <a class="text-blue-700" href="/app">New React UI</a>
   </div>
 </div>
 </body></html>
@@ -319,6 +343,7 @@ DASHBOARD_HTML = """
       <h1 class="text-2xl font-semibold">Dashboard</h1>
       <div class="space-x-3">
         <a class="text-sm text-blue-700" href="/ui">Classic UI</a>
+        <a class="text-sm text-blue-700" href="/app">New React UI</a>
         <a class="text-sm text-blue-700" href="/logout">Logout</a>
       </div>
     </div>
@@ -463,65 +488,64 @@ def prepare(request: Request, vrn: str, periodKey: str):
 <script>
 let _activeCell = null;
 
-function renderWorkbookWB(wb){{
+function renderWorkbookWB(wb){
   const wsname = wb.SheetNames[0];
   const ws = wb.Sheets[wsname];
-  const html = XLSX.utils.sheet_to_html(ws, {{ editable:true }});
+  const html = XLSX.utils.sheet_to_html(ws, { editable:true });
   const host = document.getElementById('sheet');
   host.innerHTML = html;
   // track clicks
-  host.querySelectorAll('td').forEach(td => {{
-    td.addEventListener('click', ()=> {{
-      host.querySelectorAll('td').forEach(x=>x.style.outline='');
+  host.querySelectorAll('td').forEach(td => {
+    td.addEventListener('click', ()=>{
+      host.querySelectorAll('td').forEach(x=>x.style.outline='';
       td.style.outline='2px solid #2563eb';
       const addr = td.getAttribute('data-address') || td.getAttribute('data-cell') || td.title || '';
       _activeCell = addr || td.innerText ? td.getAttribute('data-address') : null;
-      // fallback: try to infer from aria-label
       let v = td.getAttribute('data-address') || td.getAttribute('aria-label') || '';
       if(!v && td.id) v = td.id;
       if(!v) v = td.getAttribute('title') || '';
       _activeCell = v;
-    }});
-  }});
-}}
+    });
+  });
+}
 
-function pick(box){{
-  if(!_activeCell){{ alert('Click a cell first.'); return; }}
-  document.getElementById('sel_'+box).textContent = `Selected ${{_activeCell}}`;
+function pick(box){
+  if(!_activeCell){ alert('Click a cell first.'); return; }
+  document.getElementById('sel_'+box).textContent = `Selected ${_activeCell}`;
   const inp = document.createElement('input');
   inp.type = 'hidden';
   inp.name = box;
   inp.value = _activeCell;
   document.getElementById('f').appendChild(inp);
-}}
+}
 
-document.getElementById('f').onchange = async (e)=>{{
+document.getElementById('f').onchange = async (e)=>{
   const fileInput = e.target;
   if(fileInput.name !== 'file') return;
   const file = fileInput.files[0];
   if(!file) return;
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, {{ type:'array' }});
+  const wb = XLSX.read(buf, { type:'array' });
   renderWorkbookWB(wb);
-}};
+};
 
-document.getElementById('f').onsubmit = async (e)=>{{
+document.getElementById('f').onsubmit = async (e)=>{
   e.preventDefault();
   const fd = new FormData(e.target);
-  const r = await fetch('/api/excel/preview', {{ method:'POST', body: fd }});
+  const r = await fetch('/api/excel/preview', { method:'POST', body: fd });
   const data = await r.json();
   document.getElementById('out').textContent = JSON.stringify(data, null, 2);
-  if(r.ok) {{
+  if(r.ok) {
     const use = document.getElementById('use');
     use.classList.remove('hidden');
     data.periodKey = "{periodKey}";
     localStorage.setItem('prefill', JSON.stringify(data));
-  }}
-}};
+  }
+};
 
-document.getElementById('use').onclick = ()=>{{
+document.getElementById('use').onclick = ()=>{
   window.location = '/ui?vrn={vrn}';
-}};
+};
 </script>
 </body></html>
 """)
@@ -542,7 +566,7 @@ def ui():
     <header class="mb-8">
       <h1 class="text-3xl font-semibold tracking-tight">My VAT Filer <span class="text-slate-400">(Sandbox)</span></h1>
       <p class="text-slate-600 mt-1">Connect, load obligations, complete Boxes 1–9, submit, and view the receipt.</p>
-      <p class="text-sm mt-1"><a class="text-blue-700" href="/dashboard">Go to dashboard</a></p>
+      <p class="text-sm mt-1"><a class="text-blue-700" href="/dashboard">Go to dashboard</a> · <a class="text-blue-700" href="/app">New React UI</a></p>
     </header>
 
     <div id="toast" class="hidden fixed top-4 right-4 z-50 min-w-[280px] rounded-md border border-slate-200 bg-white shadow-lg p-3"></div>
