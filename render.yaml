@@ -1,4 +1,4 @@
-services:
+﻿services:
   - type: web
     name: vat-filer
     env: python
@@ -6,20 +6,17 @@ services:
     buildCommand: |
       pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
-      # Build React (since package.json is at repo root)
       npm ci
       npm run build
-      # Publish the Vite build into FastAPI's static dir
       rm -rf static/app
       mkdir -p static/app
       cp -r dist/* static/app/
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port 
     autoDeploy: true
     envVars:
       - key: BASE_URL
         value: https://test-api.service.hmrc.gov.uk
       - key: HMRC_REDIRECT_URI
-        # Update after first deploy to your Render URL + /oauth/hmrc/callback
         value: https://YOUR-RENDER-URL.onrender.com/oauth/hmrc/callback
       - key: HMRC_CLIENT_ID
         sync: false
