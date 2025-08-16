@@ -419,18 +419,19 @@ def prepare(request: Request, vrn: str, periodKey: str):
     redir = require_login(request)
     if redir:
         return redir
-    # NOTE: f-string used – escape JS template braces with double {{ }}
-    return HTMLResponse(f"""
+
+    tpl = Template(r"""
 <!doctype html><html><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Prepare from Excel – {vrn} / {periodKey}</title>
+<title>Prepare from Excel – ${vrn} / ${periodKey}</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="/static/xlsx.full.min.js"></script>
+<!-- Use CDN to avoid missing local file issues on Render -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head><body class="bg-slate-50">
   <div class="max-w-6xl mx-auto px-4 py-8">
     <a class="text-sm text-blue-700" href="/dashboard">← Back to dashboard</a>
     <h1 class="text-2xl font-semibold mt-2">Prepare return</h1>
-    <p class="text-slate-600">VRN <b>{vrn}</b>, period <b>{periodKey}</b></p>
+    <p class="text-slate-600">VRN <b>${vrn}</b>, period <b>${periodKey}</b></p>
 
     <div class="grid md:grid-cols-3 gap-6 mt-4">
       <div class="md:col-span-1">
@@ -494,16 +495,13 @@ function renderWorkbookWB(wb){
   const html = XLSX.utils.sheet_to_html(ws, { editable:true });
   const host = document.getElementById('sheet');
   host.innerHTML = html;
+
   // track clicks
   host.querySelectorAll('td').forEach(td => {
     td.addEventListener('click', ()=>{
-      host.querySelectorAll('td').forEach(x=>x.style.outline='';
-      td.style.outline='2px solid #2563eb';
-      const addr = td.getAttribute('data-address') || td.getAttribute('data-cell') || td.title || '';
-      _activeCell = addr || td.innerText ? td.getAttribute('data-address') : null;
-      let v = td.getAttribute('data-address') || td.getAttribute('aria-label') || '';
-      if(!v && td.id) v = td.id;
-      if(!v) v = td.getAttribute('title') || '';
+      host.querySelectorAll('td').forEach(x => x.style.outline = '');
+      td.style.outline = '2px solid #2563eb';
+      let v = td.getAttribute('data-address') || td.getAttribute('data-cell') || td.getAttribute('aria-label') || td.id || td.title || '';
       _activeCell = v;
     });
   });
@@ -538,17 +536,18 @@ document.getElementById('f').onsubmit = async (e)=>{
   if(r.ok) {
     const use = document.getElementById('use');
     use.classList.remove('hidden');
-    data.periodKey = "{periodKey}";
+    data.periodKey = "${periodKey}";
     localStorage.setItem('prefill', JSON.stringify(data));
   }
 };
 
 document.getElementById('use').onclick = ()=>{
-  window.location = '/ui?vrn={vrn}';
+  window.location = '/ui?vrn=${vrn}';
 };
 </script>
 </body></html>
 """)
+    return HTMLResponse(tpl.substitute(vrn=vrn, periodKey=periodKey))
 
 # -----------------------------------------------------------------------------
 # Classic UI page
