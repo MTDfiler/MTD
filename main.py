@@ -205,27 +205,12 @@ def require_login(request: Request) -> Optional[RedirectResponse]:
 # -----------------------------------------------------------------------------
 # Landing
 # -----------------------------------------------------------------------------
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    user = request.session.get("user")
-    return f"""
-<!doctype html><html><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>My VAT Filer</title>
-<script src="https://cdn.tailwindcss.com"></script>
-</head><body class="bg-slate-50">
-<div class="max-w-3xl mx-auto p-6">
-  <h1 class="text-2xl font-semibold mb-3">My VAT Filer</h1>
-  <p class="text-slate-700 mb-6">Demo app for MTD VAT (sandbox/live capable).</p>
-  <div class="space-x-3">
-    {"<a class='text-blue-700' href='/dashboard'>Dashboard</a>" if user else "<a class='text-blue-700' href='/login'>Login</a>"}
-    <a class="text-blue-700" href="/register/agent">Register (Agent)</a>
-    <a class="text-blue-700" href="/register/taxpayer">Register (Taxpayer)</a>
-    <a class="text-blue-700" href="/app">New React UI</a>
-  </div>
-</div>
-</body></html>
-"""
+from fastapi.responses import RedirectResponse
+
+@app.get("/", include_in_schema=False)
+def home():
+    return RedirectResponse(url="/app", status_code=307)
+
 
 # -----------------------------------------------------------------------------
 # Registration & Login
