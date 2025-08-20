@@ -25,4 +25,4 @@ services:
       - key: SESSION_SECRET
         generateValue: true
       - key: DATA_DIR
-        value: /var/data
+        value: ./data
