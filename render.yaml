@@ -11,6 +11,7 @@ services:
       rm -rf static/app
       mkdir -p static/app
       cp -r vat-filer-ui/dist/* static/app/
+      mkdir -p data   # 👈 ensures ./data exists
     startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     autoDeploy: true
     envVars:
