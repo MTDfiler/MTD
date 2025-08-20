@@ -1,4 +1,3 @@
-@"
 services:
   - type: web
     name: vat-filer
@@ -26,5 +25,4 @@ services:
       - key: SESSION_SECRET
         generateValue: true
       - key: DATA_DIR
-        value: .
-"@ | Set-Content -Encoding UTF8 .\render.yaml
+        value: /data
