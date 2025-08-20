@@ -1,27 +1,36 @@
-﻿# --- Build React UI (in subfolder vat-filer-ui) ---
-FROM node:20-slim AS ui
+﻿# ---------- Build the Vite UI ----------
+FROM node:18-alpine AS ui
 WORKDIR /ui
-COPY vat-filer-ui/ ./
-RUN npm ci && npm run build
 
-# --- Python runtime with all deps installed ---
-FROM python:3.11-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# Install UI deps
+COPY vat-filer-ui/package*.json ./
+RUN npm ci
+
+# Build UI
+COPY vat-filer-ui/ ./
+RUN npm run build
+
+# ---------- Python backend ----------
+FROM python:3.11-slim AS app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# (optional) system build tools
+# (optional) system build tools for any pip wheels
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# python deps
-COPY requirements.txt ./
-RUN python -m pip install --upgrade pip setuptools wheel \
- && python -m pip install --no-cache-dir -r requirements.txt
+# Backend deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# app code
+# App code
 COPY . .
-# copy built UI into FastAPI static dir
-COPY --from=ui /ui/dist/ ./static/app/
 
+# Bring in the built UI -> served from /static/app
+COPY --from=ui /ui/dist /app/static/app
+
+# Render will supply $PORT; locally we can map 8000
 EXPOSE 8000
-CMD ["python","-m","uvicorn","main:app","--host","0.0.0.0","--port","8000"]
+CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
